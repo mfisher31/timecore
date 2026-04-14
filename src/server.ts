@@ -1,5 +1,6 @@
 import "dotenv/config";
-import Fastify from "fastify";
+import { fileURLToPath } from "url";
+import Fastify, { FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -10,10 +11,8 @@ import { healthRoutes } from "./routes/health.js";
 import { timeharborRoutes } from "./routes/timeharbor/index.js";
 import { timehuddleRoutes } from "./routes/timehuddle/index.js";
 
-const app = Fastify({ logger: true });
-
-async function bootstrap() {
-  await connectDB();
+export async function buildApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
+  const app = Fastify({ logger: opts.logger ?? true });
 
   // Swagger — must be registered before routes
   await app.register(swagger, {
@@ -70,10 +69,19 @@ async function bootstrap() {
   await app.register(timeharborRoutes, { prefix: "/api/timeharbor" });
   await app.register(timehuddleRoutes, { prefix: "/api/timehuddle" });
 
+  return app;
+}
+
+async function bootstrap() {
+  await connectDB();
+  const app = await buildApp();
   const port = Number(process.env.PORT) || 3001;
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`API running on http://localhost:${port}`);
   console.log(`Swagger UI at http://localhost:${port}/docs`);
 }
 
-bootstrap().catch(console.error);
+// Only start the server when this file is run directly (not imported by tests)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  bootstrap().catch(console.error);
+}
